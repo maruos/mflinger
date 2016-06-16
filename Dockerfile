@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     debhelper \
     devscripts \
     dh-make \
+    dh-systemd \
     nano \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/*
