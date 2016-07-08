@@ -16,4 +16,8 @@
 #
 LOCAL_PATH := $(call my-dir)
 
-include $(call all-makefiles-under, $(LOCAL_PATH))
+include $(CLEAR_VARS)
+LOCAL_MODULE := libmaru
+LOCAL_SRC_FILES := mlib.c
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
+include $(BUILD_SHARED_LIBRARY)

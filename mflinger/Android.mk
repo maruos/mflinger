@@ -16,4 +16,14 @@
 #
 LOCAL_PATH := $(call my-dir)
 
-include $(call all-makefiles-under, $(LOCAL_PATH))
+include $(CLEAR_VARS)
+LOCAL_MODULE := mflinger
+LOCAL_SRC_FILES := mflinger.cpp
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
+LOCAL_CFLAGS := -DLOG_TAG=\"mflinger\"
+LOCAL_SHARED_LIBRARIES := \
+    liblog \
+    libutils \
+    libgui \
+    libmaru
+include $(BUILD_EXECUTABLE)
