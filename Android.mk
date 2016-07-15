@@ -20,7 +20,7 @@ LOCAL_PATH := $(call my-dir)
 #  libmflinger
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := libmaru
+LOCAL_MODULE := libmflinger
 LOCAL_SRC_FILES := lib/mlib.c
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 include $(BUILD_SHARED_LIBRARY)
@@ -37,5 +37,5 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libutils \
     libgui \
-    libmaru
+    libmflinger
 include $(BUILD_EXECUTABLE)
