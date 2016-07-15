@@ -48,7 +48,7 @@ LIBS += -lmflinger
 
 TARGET_MODULE := mclient
 TARGET := $(BUILD_OUT)/$(TARGET_MODULE)
-SRCS := $(wildcard mclient/*.c)
+SRCS := $(wildcard src/mclient/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS)) 
 TARGET_DEPS := $(OBJS) $(TARGET_LIB) 
 
