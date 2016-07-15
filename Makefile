@@ -55,7 +55,7 @@ TARGET_DEPS := $(OBJS) $(TARGET_LIB)
 #
 # Rules
 #
-.PHONY: all install uninstall dist deb clean
+.PHONY: all install uninstall dist clean
 
 all: $(TARGET)
 
@@ -86,15 +86,6 @@ dist: $(BUILD_OUT)
 	rm -r /tmp/dist/$(ARCHIVE)/$(BUILD_OUT)
 	mv /tmp/dist/$(ARCHIVE) -t $(BUILD_OUT)
 	tar cJf $(BUILD_OUT)/$(ARCHIVE).tar.xz -C $(BUILD_OUT) $(ARCHIVE)
-
-DEBPKG_NAME := maru-mflinger-client
-DEBPKG_SRC_ARCHIVE := $(DEBPKG_NAME)_$(MAJOR_VERSION).$(MINOR_VERSION).orig.tar.xz
-DEBPKG_BUILD_OPTS = -us -uc
-deb:
-	cd $(BUILD_OUT) && \
-	cp -r ../build/debian $(ARCHIVE) && \
-	cp $(ARCHIVE).tar.xz $(DEBPKG_SRC_ARCHIVE) && \
-	cd $(ARCHIVE) && debuild $(DEBPKG_BUILD_OPTS)
 
 clean:
 	-@rm $(OBJS) $(LIB_OBJS)
