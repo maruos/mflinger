@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-
 #include <X11/Xlib.h>
 #include <X11/extensions/Xfixes.h>
+
+#include "mlog.h"
 
 /*
  * A "singleton" cache for dealing with the XFixes cursor API.
@@ -44,7 +44,7 @@ static int last_y = -1;
 
 int cursor_cache_add(XFixesCursorImage *xcursor) {
     if (xcursor == NULL) {
-        fprintf(stderr, "cannot add NULL cursor to cache\n");
+        MLOGD("cannot add NULL cursor to cache\n");
         return -1;
     }
 
@@ -55,13 +55,13 @@ int cursor_cache_add(XFixesCursorImage *xcursor) {
             entry->xcursor = xcursor;
             return 0;
         } else if (entry->xcursor->cursor_serial == xcursor->cursor_serial) {
-            fprintf(stderr, "cursor already in cache\n");
+            MLOGD("cursor already in cache\n");
             return -1;
         }
     }
 
     if (i >= CURSOR_CACHE_SIZE) {
-        fprintf(stderr, "uh-oh, cursor cache full!\n");
+        MLOGE("uh-oh, cursor cache full!\n");
     }
 
     return -1;
