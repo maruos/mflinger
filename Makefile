@@ -55,9 +55,12 @@ TARGET_DEPS := $(OBJS) $(TARGET_LIB)
 #
 # Rules
 #
-.PHONY: all install uninstall dist clean
+.PHONY: all debug install uninstall dist clean
 
 all: $(TARGET)
+
+debug: CFLAGS += -DDEBUG
+debug: all
 
 $(TARGET): $(BUILD_OUT) $(TARGET_DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@ $(LIBS)
