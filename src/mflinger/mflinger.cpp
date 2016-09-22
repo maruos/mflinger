@@ -92,45 +92,7 @@ static int32_t get_layer(int32_t surface_idx) {
 }
 
 static int assign_layerstack() {
-    DisplayInfo dinfo_main, dinfo_ext;
-    status_t check;
-
-    sp<IBinder> dpy_main = SurfaceComposerClient::getBuiltInDisplay(
-            ISurfaceComposer::eDisplayIdMain);
-    check = SurfaceComposerClient::getDisplayInfo(dpy_main, &dinfo_main);
-    if (NO_ERROR != check) {
-        ALOGE("getDisplayInfo() for eDisplayIdMain failed!");
-        return -1;
-    }
-
-    ALOGD_IF(DEBUG, "Main DisplayInfo dump");
-    ALOGD_IF(DEBUG, "     display w x h = %d x %d", dinfo_main.w, dinfo_main.h);
-    ALOGD_IF(DEBUG, "     display orientation = %d", dinfo_main.orientation);
-
-    /* undefined display marker */
-    dinfo_ext.w = dinfo_ext.h = 0;
-
-    sp<IBinder> dpy_ext = SurfaceComposerClient::getBuiltInDisplay(
-            ISurfaceComposer::eDisplayIdHdmi);
-    check = SurfaceComposerClient::getDisplayInfo(dpy_ext, &dinfo_ext);
-    if (NO_ERROR != check) {
-        ALOGW("getDisplayInfo() for eDisplayIdHdmi failed!");
-    }
-
-    ALOGD_IF(DEBUG, "HDMI DisplayInfo dump");
-    ALOGD_IF(DEBUG, "     display w x h = %d x %d", dinfo_ext.w, dinfo_ext.h);
-    ALOGD_IF(DEBUG, "     display orientation = %d", dinfo_ext.orientation);
-
-    /*
-     * If the HDMI display is valid, tell SurfaceFlinger to
-     * project our surfaces onto it by matching the surface
-     * layerstack with the HDMI display layerstack.
-     *
-     * Otherwise, we target the default built-in display for
-     * debugging purposes.
-     */
-    int hasHDMIDisplay = dinfo_ext.w > 0 && dinfo_ext.h > 0;
-    return hasHDMIDisplay ? DEFAULT_EXTERNAL_DISPLAY : DEFAULT_DISPLAY;
+    return DEFAULT_EXTERNAL_DISPLAY;
 }
 
 static int getDisplayInfo(const int sockfd) {
