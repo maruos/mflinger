@@ -52,6 +52,26 @@
 #define CURSOR_WIDTH  (24)
 #define CURSOR_HEIGHT (24)
 
+/**
+ * We use a custom error handler here for flexibility over the default handler
+ * that just kills the process.
+ *
+ * This is especially useful when handling screen change events, because there
+ * is a a potential race condition between receiving a damage event and a
+ * screen change event. If the damage event is received before the screen
+ * change event, XShmGetImage will throw BadMatch and kill the process--in
+ * reality, this is just a transient error.
+ */
+int x_error_handler(Display *dpy, XErrorEvent *ev) {
+    char error_text[BUF_SIZE];
+    XGetErrorText(dpy, ev->error_code, error_text, BUF_SIZE);
+    MLOGE("%s: request code %d\n",
+            error_text,
+            ev->error_code,
+            ev->request_code);
+    return 0;
+}
+
 int copy_ximg_rows_to_buffer_mlocked(MBuffer *buf, XImage *ximg,
          uint32_t row_start, uint32_t row_end) {
     /* TODO ximg->xoffset? */
@@ -290,7 +310,16 @@ int cleanup_shm(const void *shmaddr, const int shmid) {
     return 0;
 }
 
-XImage *init_xshm(Display *dpy, XShmSegmentInfo *shminfo, int screen) {
+int xshm_cleanup(Display *dpy, XShmSegmentInfo *shminfo, XImage *ximg) {
+    if (!XShmDetach(dpy, shminfo)) {
+        MLOGE("error detaching shm from X server\n");
+        return -1;
+    }
+    XDestroyImage(ximg);
+    return cleanup_shm(shminfo->shmaddr, shminfo->shmid);
+}
+
+XImage *xshm_init(Display *dpy, XShmSegmentInfo *shminfo, int screen) {
     /* create shared memory XImage structure */
     XImage *ximg = XShmCreateImage(dpy,
                     DefaultVisual(dpy, screen),
@@ -494,6 +523,7 @@ static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_
      */
     XGrabServer(dpy);
 
+    int err = -1;
     int screen = DefaultScreen(dpy);
     int sync_needed = XDisplayWidth(dpy, screen) != dinfo.width ||
                         XDisplayHeight(dpy, screen) != dinfo.height;
@@ -503,14 +533,17 @@ static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_
                                         dinfo.width, dinfo.height);
         if (matching_mode != NULL) {
             if (x_set_mode(dpy, screenr, matching_mode) == 0) {
-                if (x_sync_mode(dpy, screenr, matching_mode, xrandr_event_base) < 0) {
+                if (x_sync_mode(dpy, screenr, matching_mode, xrandr_event_base) == 0) {
+                    /* success! */
+                    err = 0;
+                } else {
                     MLOGE("failed to sync mode\n");
                 }
             } else {
                 MLOGE("failed to set mode\n");
             }
         } else {
-            MLOGW("couldn't find matching mode, using default mode\n");
+            MLOGW("couldn't find matching mode, using current mode\n");
         }
 
         XRRFreeScreenResources(screenr);
@@ -522,7 +555,7 @@ static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_
      */
     XUngrabServer(dpy);
 
-    return 0;
+    return err;
 }
 
 int main(void) {
@@ -582,6 +615,10 @@ int main(void) {
         return -1;
     }
 
+    if (XSetErrorHandler(x_error_handler) < 0) {
+        MLOGE("error setting error handler");
+    }
+
     int screen = DefaultScreen(dpy);
 
     MLOGI("intial screen config: %dx%d %dmmx%dmm\n",
@@ -631,7 +668,7 @@ int main(void) {
     // set up XShm
     //
     XShmSegmentInfo shminfo;
-    XImage *ximg = init_xshm(dpy, &shminfo, screen);
+    XImage *ximg = xshm_init(dpy, &shminfo, screen);
 
     //
     // register for X events
@@ -713,19 +750,16 @@ int main(void) {
             }
 
             if (sync_resolution(dpy, &mdpy, xrandr_event_base) < 0) {
-                MLOGW("couldn't re-sync resolution\n");
+                MLOGW("failed to sync resolution, re-configuring to match new size\n");
+                xshm_cleanup(dpy, &shminfo, ximg);
+                ximg = xshm_init(dpy, &shminfo, screen);
             }
         }
     } while (1);
 
 
     XDamageDestroy(dpy, damage);
-
-    if (!XShmDetach(dpy, &shminfo)) {
-        MLOGE("error detaching shm from X server\n");
-    }
-    XDestroyImage(ximg);
-    cleanup_shm(shminfo.shmaddr, shminfo.shmid);
+    xshm_cleanup(dpy, &shminfo, ximg);
 
 cleanup_1:
     cursor_cache_free();
