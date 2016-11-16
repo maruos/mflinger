@@ -51,6 +51,8 @@ int     MGetDisplayInfo (MDisplay *dpy, MDisplayInfo *dpy_info);
 int     MCreateBuffer   (MDisplay *dpy, MBuffer *buf);
 int     MUpdateBuffer   (MDisplay *dpy, MBuffer *buf,
                          uint32_t xpos, uint32_t ypos);
+int     MResizeBuffer   (MDisplay *dpy, MBuffer *buf,
+                         uint32_t width, uint32_t height);
 
 //
 // Buffer rendering

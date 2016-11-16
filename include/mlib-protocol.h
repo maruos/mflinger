@@ -41,6 +41,7 @@
 #define M_UPDATE_BUFFER             (1 << 6)
 #define M_LOCK_BUFFER               (1 << 7)
 #define M_UNLOCK_AND_POST_BUFFER    (1 << 8)
+#define M_RESIZE_BUFFER             (1 << 9)
 
 struct MRequestHeader {
     /* 
@@ -91,6 +92,18 @@ struct MUpdateBufferResponse {
     int32_t result;
 };
 typedef struct MUpdateBufferResponse MUpdateBufferResponse;
+
+struct MResizeBufferRequest {
+    int32_t id;
+    uint32_t width;
+    uint32_t height;
+};
+typedef struct MResizeBufferRequest MResizeBufferRequest;
+
+struct MResizeBufferResponse {
+    int32_t result;
+};
+typedef struct MResizeBufferResponse MResizeBufferResponse;
 
 struct MLockBufferRequest {
     int32_t id;

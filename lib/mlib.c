@@ -180,7 +180,7 @@ int MCreateBuffer(MDisplay *dpy, MBuffer *buf) {
 }
 
 int MUpdateBuffer(MDisplay *dpy, MBuffer *buf,
-     uint32_t xpos, uint32_t ypos) {
+        uint32_t xpos, uint32_t ypos) {
     struct {
         MRequestHeader header;
         MUpdateBufferRequest request;
@@ -196,9 +196,41 @@ int MUpdateBuffer(MDisplay *dpy, MBuffer *buf,
         return -1;
     }
 
-    /* TODO response? */
+    /* failure is non-critical so no response -- cross your fingers */
 
     return 0;
+}
+
+int MResizeBuffer(MDisplay *dpy, MBuffer *buf,
+        uint32_t width, uint32_t height) {
+    struct {
+        MRequestHeader header;
+        MResizeBufferRequest request;
+    } packet;
+    packet.header.op = M_RESIZE_BUFFER;
+    packet.request.id = buf->__id;
+    packet.request.width = width;
+    packet.request.height = height;
+
+    if (write(dpy->sock_fd, &packet, sizeof(packet)) < 0) {
+        MLOGE("error sending resize buffer request: %s\n",
+            strerror(errno));
+        return -1;
+    }
+
+    MResizeBufferResponse response;
+    if (read(dpy->sock_fd, &response, sizeof(response)) < 0) {
+        MLOGE("error receiving resize buffer response: %s\n",
+            strerror(errno));
+        return -1;
+    }
+
+    if (response.result == 0) {
+        /* success, update buffer size for client */
+        buf->width = width;
+        buf->height = height;
+    }
+    return response.result ? -1 : 0;
 }
 
 int MLockBuffer(MDisplay *dpy, MBuffer *buf) {

@@ -80,6 +80,10 @@ static int32_t buffer_id_to_index(int32_t id) {
     return id - 1;
 }
 
+static int is_valid_idx(struct mflinger_state *state, int32_t idx) {
+    return (0 <= idx && idx < state->num_surfaces);
+}
+
 static int32_t get_layer(int32_t surface_idx) {
     /*
      * Assign some really large number to make
@@ -209,24 +213,60 @@ static int updateBuffer(const int sockfd, struct mflinger_state *state) {
         request.xpos, request.ypos);
 
     int32_t idx = buffer_id_to_index(request.id);
-
-    if (0 <= idx && idx < state->num_surfaces) {
-        sp<SurfaceControl> sc = state->surfaces[idx];
-
-        status_t ret = NO_ERROR;
-        SurfaceComposerClient::openGlobalTransaction();
-        ret |= sc->setPosition(request.xpos, request.ypos);
-        SurfaceComposerClient::closeGlobalTransaction();
-
-        if (NO_ERROR != ret) {
-            ALOGE("compositor transaction failed!");
-            return -1;
-        }
-
-        return 0;
+    if (!is_valid_idx(state, idx)) {
+        ALOGW("ignoring update request for invalid surface id: %d\n", idx);
+        return -1;
     }
 
-    return -1;
+    sp<SurfaceControl> sc = state->surfaces[idx];
+
+    status_t ret = NO_ERROR;
+    SurfaceComposerClient::openGlobalTransaction();
+    ret |= sc->setPosition(request.xpos, request.ypos);
+    SurfaceComposerClient::closeGlobalTransaction();
+
+    if (NO_ERROR != ret) {
+        ALOGE("compositor transaction failed!");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int resizeBuffer(const int sockfd, struct mflinger_state *state) {
+    int n;
+    MResizeBufferRequest request;
+    n = read(sockfd, &request, sizeof(request));
+    ALOGD_IF(DEBUG, "[resizeBuffer] requested width = %d", request.width);
+    ALOGD_IF(DEBUG, "[resizeBuffer] requested height = %d", request.height);
+
+    int32_t idx = buffer_id_to_index(request.id);
+    if (!is_valid_idx(state, idx)) {
+        ALOGW("ignoring resize request for invalid surface id: %d\n", idx);
+        return -1;
+    }
+
+    sp<SurfaceControl> sc = state->surfaces[idx];
+
+    status_t ret = NO_ERROR;
+    SurfaceComposerClient::openGlobalTransaction();
+    ret |= sc->setSize(request.width, request.height);
+    SurfaceComposerClient::closeGlobalTransaction();
+
+    MResizeBufferResponse response;
+    response.result = 0;
+    if (NO_ERROR != ret) {
+        ALOGE("compositor resize transaction failed!");
+        response.result = -1;
+    }
+
+    if (write(sockfd, &response, sizeof(response)) < 0) {
+        ALOGE("Failed to write resizeBuffer response: %s",
+                strerror(errno));
+        return -1;
+    }
+
+    return 0;
 }
 
 static int sendfd(const int sockfd,
@@ -398,6 +438,11 @@ static void serve(const int sockfd, struct mflinger_state *state) {
             case M_UPDATE_BUFFER:
                 ALOGD_IF(DEBUG, "Update buffer request!");
                 updateBuffer(cfd, state);
+                break;
+
+            case M_RESIZE_BUFFER:
+                ALOGD_IF(DEBUG, "Resize buffer request!");
+                resizeBuffer(cfd, state);
                 break;
 
             case M_LOCK_BUFFER:
