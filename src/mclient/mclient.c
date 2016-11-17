@@ -67,7 +67,6 @@ int x_error_handler(Display *dpy, XErrorEvent *ev) {
     XGetErrorText(dpy, ev->error_code, error_text, BUF_SIZE);
     MLOGE("%s: request code %d\n",
             error_text,
-            ev->error_code,
             ev->request_code);
     return 0;
 }
@@ -311,12 +310,17 @@ int cleanup_shm(const void *shmaddr, const int shmid) {
 }
 
 int xshm_cleanup(Display *dpy, XShmSegmentInfo *shminfo, XImage *ximg) {
+    int err = 0;
     if (!XShmDetach(dpy, shminfo)) {
         MLOGE("error detaching shm from X server\n");
-        return -1;
+        err = -1;
     }
     XDestroyImage(ximg);
-    return cleanup_shm(shminfo->shmaddr, shminfo->shmid);
+
+    /* try to clean up shm even if X fails to detach to avoid leaks */
+    err |= cleanup_shm(shminfo->shmaddr, shminfo->shmid);
+
+    return err;
 }
 
 XImage *xshm_init(Display *dpy, XShmSegmentInfo *shminfo, int screen) {
@@ -481,22 +485,37 @@ static int x_sync_mode(Display *dpy, XRRScreenResources *screenr,
     return -1;
 }
 
-static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_base) {
+/**
+ * Try to sync up MDisplay with XDisplay.
+ */
+static int sync_displays(Display *dpy, MDisplay *mdpy,
+        const int xrandr_event_base)
+{
     if (dpy == NULL || mdpy == NULL) {
         return -2;
     }
 
+    uint32_t target_width, target_height;
+    target_width = target_height = 0;
+
+    /*
+     * If we can get the real display size, set that as our target size.
+     */
     MDisplayInfo dinfo = { 0 };
-    if (MGetDisplayInfo(mdpy, &dinfo) < 0) {
-        MLOGW("couldn't get mdisplay info, using default mode\n");
+    if (MGetDisplayInfo(mdpy, &dinfo) <= 0) {
+        MLOGW("failed to get mdisplay info, using current mode\n");
         return -1;
     }
 
-    int valid_display = dinfo.width > 0 && dinfo.height > 0;
     MLOGD("mwidth = %d, mheight = %d\n", dinfo.width, dinfo.height);
+    int valid_display = dinfo.width > 0 && dinfo.height > 0;
     if (!valid_display) {
+        MLOGW("invalid mdisplay size, using current mode\n");
         return -1;
     }
+
+    target_width = dinfo.width;
+    target_height = dinfo.height;
 
     /*
      * Re-sync before our service grab in case the screen
@@ -525,22 +544,26 @@ static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_
 
     int err = -1;
     int screen = DefaultScreen(dpy);
-    int sync_needed = XDisplayWidth(dpy, screen) != dinfo.width ||
-                        XDisplayHeight(dpy, screen) != dinfo.height;
-    if (sync_needed) {
-        XRRScreenResources *screenr = XRRGetScreenResources(dpy, DefaultRootWindow(dpy));
+    uint32_t xwidth = XDisplayWidth(dpy, screen);
+    uint32_t xheight = XDisplayHeight(dpy, screen);
+
+    int x_sync_needed = xwidth != target_width ||
+                        xheight != target_height;
+    if (x_sync_needed) {
+        XRRScreenResources *screenr = XRRGetScreenResources(dpy,
+                                        DefaultRootWindow(dpy));
         XRRModeInfo *matching_mode = x_find_matching_mode(dpy, screenr,
-                                        dinfo.width, dinfo.height);
+                                        target_width, target_height);
         if (matching_mode != NULL) {
             if (x_set_mode(dpy, screenr, matching_mode) == 0) {
                 if (x_sync_mode(dpy, screenr, matching_mode, xrandr_event_base) == 0) {
                     /* success! */
                     err = 0;
                 } else {
-                    MLOGE("failed to sync mode\n");
+                    MLOGE("failed to sync mode with X\n");
                 }
             } else {
-                MLOGE("failed to set mode\n");
+                MLOGE("failed to set mode with X\n");
             }
         } else {
             MLOGW("couldn't find matching mode, using current mode\n");
@@ -556,6 +579,35 @@ static int sync_resolution(Display *dpy, MDisplay *mdpy, const int xrandr_event_
     XUngrabServer(dpy);
 
     return err;
+}
+
+static int resize_shm(Display *dpy, XImage *ximg, XShmSegmentInfo *shminfo) {
+    int screen = DefaultScreen(dpy);
+    int xwidth = XDisplayWidth(dpy, screen);
+    int xheight = XDisplayHeight(dpy, screen);
+    int shm_resize_needed = ximg->width != xwidth ||
+                            ximg->height != xheight;
+    if (shm_resize_needed) {
+        xshm_cleanup(dpy, shminfo, ximg);
+        ximg = xshm_init(dpy, shminfo, screen);
+    }
+
+    return ximg == NULL ? -1 : 0;
+}
+
+static int resize_mbuffer(Display *dpy, MDisplay *mdpy, MBuffer *root) {
+    int screen = DefaultScreen(dpy);
+    int xwidth = XDisplayWidth(dpy, screen);
+    int xheight = XDisplayHeight(dpy, screen);
+    int buffer_resize_needed = root->width != xwidth ||
+                               root->height != xheight;
+    if (buffer_resize_needed) {
+        if (MResizeBuffer(mdpy, root, xwidth, xheight) < 0) {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 int main(void) {
@@ -626,7 +678,7 @@ int main(void) {
          XDisplayWidthMM(dpy, screen), XDisplayHeightMM(dpy, screen));
 
     XRRSelectInput(dpy, DefaultRootWindow(dpy), RRScreenChangeNotifyMask);
-    if (sync_resolution(dpy, &mdpy, xrandr_event_base) < 0) {
+    if (sync_displays(dpy, &mdpy, xrandr_event_base) < 0) {
         MLOGW("couldn't sync resolution, using default mode\n");
     }
 
@@ -669,6 +721,11 @@ int main(void) {
     //
     XShmSegmentInfo shminfo;
     XImage *ximg = xshm_init(dpy, &shminfo, screen);
+    if (ximg == NULL) {
+        MLOGC("failed to create xshm\n");
+        err = -1;
+        goto cleanup_1;
+    }
 
     //
     // register for X events
@@ -736,8 +793,14 @@ int main(void) {
             cursor_cache_set_cur(xcursor);
         } else if (ev.type == xrandr_event_base + RRScreenChangeNotify) {
             /*
-             * xfsettingsd applies xrandr config on startup based
+             * Someone changed the screen configuration.
+             *
+             * Common reasons:
+             *
+             * (1) xfsettingsd applies xrandr config on startup based
              * on the last setting selected in Settings > Display.
+             *
+             * (2) The user changed the display settings manually.
              */
             XRRScreenChangeNotifyEvent *rev = (XRRScreenChangeNotifyEvent *)&ev;
             MLOGW("[t=%lu] screen size changed to %dx%d %dmmx%dmm in main evloop\n",
@@ -749,10 +812,27 @@ int main(void) {
                 MLOGE("error updating xrandr configuration\n");
             }
 
-            if (sync_resolution(dpy, &mdpy, xrandr_event_base) < 0) {
-                MLOGW("failed to sync resolution, re-configuring to match new size\n");
-                xshm_cleanup(dpy, &shminfo, ximg);
-                ximg = xshm_init(dpy, &shminfo, screen);
+            /*
+             * Attempt to sync XDisplay and MDisplay up again if possible.
+             *
+             * If we can determine the size of the real attached display, and
+             * it doesn't match this change, it will be overriden to correctly
+             * match. Otherwise, we just accept this change.
+             */
+            if (sync_displays(dpy, &mdpy, xrandr_event_base) < 0) {
+                MLOGW("failed to sync X with mdisplay, re-configuring to match new size\n");
+            }
+
+            /*
+             * Make sure our buffer sizes match up with the display size.
+             */
+            if (resize_shm(dpy, ximg, &shminfo) < 0) {
+                MLOGC("failed to resize shm\n");
+                break;
+            }
+            if (resize_mbuffer(dpy, &mdpy, &root) < 0) {
+                MLOGC("failed to resize mbuffer\n");
+                break;
             }
         }
     } while (1);

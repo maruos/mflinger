@@ -20,7 +20,8 @@
 
 #include <stdio.h>
 
-/* printk levels */
+/* based on printk levels */
+#define MLOG_CRIT       "<2>CRITICAL: "
 #define MLOG_ERR        "<3>"
 #define MLOG_WARNING    "<4>"
 #define MLOG_INFO       "<6>"
@@ -29,6 +30,7 @@
 #define MLOGI(...) fprintf(stderr, MLOG_INFO __VA_ARGS__)
 #define MLOGW(...) fprintf(stderr, MLOG_WARNING __VA_ARGS__)
 #define MLOGE(...) fprintf(stderr, MLOG_ERR __VA_ARGS__)
+#define MLOGC(...) fprintf(stderr, MLOG_CRIT __VA_ARGS__)
 
 #ifdef DEBUG
 #define MLOGD(...) fprintf(stderr, MLOG_DEBUG __VA_ARGS__)
