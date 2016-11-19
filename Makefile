@@ -59,7 +59,7 @@ TARGET_DEPS := $(OBJS) $(TARGET_LIB)
 
 all: $(TARGET)
 
-debug: CFLAGS += -DDEBUG
+debug: CFLAGS += -g -O0 -DDEBUG
 debug: all
 
 $(TARGET): $(BUILD_OUT) $(TARGET_DEPS)

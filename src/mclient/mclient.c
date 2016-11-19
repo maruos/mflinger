@@ -31,26 +31,18 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xresource.h>
-#include <X11/extensions/Xfixes.h>
 #include <X11/extensions/XShm.h>
 #include <X11/extensions/Xdamage.h>
-#include <X11/extensions/XInput2.h>
 #include <X11/extensions/Xrandr.h>
 
 #include <linux/input.h>
 
 #include "mlib.h"
+#include "mcursor.h"
 #include "mcursor_cache.h"
 #include "mlog.h"
 
 #define BUF_SIZE (1 << 8)
-
-/*
- * Empirically, these appear to be the max dims
- * that X returns for cursor images.
- */
-#define CURSOR_WIDTH  (24)
-#define CURSOR_HEIGHT (24)
 
 /**
  * We use a custom error handler here for flexibility over the default handler
@@ -98,49 +90,6 @@ int copy_ximg_to_buffer_mlocked(MBuffer *buf, XImage *ximg) {
     return copy_ximg_rows_to_buffer_mlocked(buf, ximg, 0, ximg->height);
 }
 
-int copy_xcursor_to_buffer(MDisplay *mdpy, MBuffer *buf, XFixesCursorImage *cursor) {
-    int err;
-    err = MLockBuffer(mdpy, buf);
-    if (err < 0) {
-        MLOGE("MLockBuffer failed!\n");
-        return -1;
-    }
-
-    /* clear out stale pixels */
-    memset(buf->bits, 0, buf->height * buf->stride * 4);
-
-    uint32_t cur_x, cur_y;  /* cursor relative coords */
-    uint32_t x, y;          /* root window coords */
-    for (cur_y = 0; cur_y < cursor->height; ++cur_y) {
-        for (cur_x = 0; cur_x < cursor->width; ++cur_x) {
-            x = cur_x;
-            y = cur_y;
-
-            /* bounds check! */
-            if (y >= buf->height || x >= buf->width) {
-                break;
-            }
-
-            uint8_t *pixel = (uint8_t *)cursor->pixels +
-                4 * (cur_y * cursor->width + cur_x);
-
-            /* copy only if opaque pixel */
-            if (pixel[3] == 255) {
-                uint32_t *buf_pixel = buf->bits + (y * buf->stride + x) * 4;
-                memcpy(buf_pixel, pixel, 4);
-            }
-        }
-    }
-
-    err = MUnlockBuffer(mdpy, buf);
-    if (err < 0) {
-        MLOGE("MUnlockBuffer failed!\n");
-        return -1;
-    }
-
-    return 0;
-}
-
 int render_root(Display *dpy, MDisplay *mdpy,
         MBuffer *buf, XImage *ximg) {
     int err;
@@ -170,130 +119,6 @@ int render_root(Display *dpy, MDisplay *mdpy,
     }
 
     return 0;
-}
-
-int update_cursor(Display *dpy,
-        MDisplay *mdpy, MBuffer *cursor,
-        int root_x, int root_y) {
-    int last_x, last_y;
-    cursor_cache_get_last_pos(&last_x, &last_y);
-    if (root_x != last_x || root_y != last_y) {
-        XFixesCursorImage *xcursor = cursor_cache_get_cur();
-
-        /* adjust so that hotspot is top-left */
-        int32_t xpos = root_x - xcursor->xhot;
-        int32_t ypos = root_y - xcursor->yhot;
-
-        /* enforce lower bound or surfaceflinger freaks out */
-        if (xpos < 0) {
-            xpos = 0;
-        }
-        if (ypos < 0) {
-            ypos = 0;
-        }
-
-        if (MUpdateBuffer(mdpy, cursor, xpos, ypos) < 0) {
-            MLOGE("error calling MUpdateBuffer\n");
-        }
-
-        cursor_cache_set_last_pos(root_x, root_y);
-    }
-
-    return 0;
-}
-
-struct cursor_thread_args {
-    MDisplay *mdpy;
-    MBuffer *cursor;
-};
-
-void *cursor_thread(void *targs) {
-    struct cursor_thread_args *args = (struct cursor_thread_args *)targs;
-
-    /* separate threads need separate client connections */
-    Display *dpy = XOpenDisplay(NULL);
-    if (!dpy) {
-        MLOGE("[ct] error calling XOpenDisplay\n");
-        return (void *)-1;
-    }
-
-    /* check for XInputExtension (XI*) */
-    int xi_opcode, event, error;
-    if (!XQueryExtension(dpy, "XInputExtension",
-            &xi_opcode, &event, &error)) {
-        MLOGE("XInputExtension unavailable!\n");
-        XCloseDisplay(dpy);
-        return (void *)-1;
-    }
-
-    /* check for XI2 version */
-    int ret;
-    int major = XI_2_Major, minor = XI_2_Minor;
-    ret = XIQueryVersion(dpy, &major, &minor);
-    if (ret == BadRequest) {
-        MLOGE("No matching XI2 support. (%d.%d only)\n", major, minor);
-        XCloseDisplay(dpy);
-        return (void *)-1;
-    }
-
-    /*
-     * Sadly, the core X protocol is incapable of delivering
-     * pointer motion events for the entire root window.
-     * You can try to get around this by XSelectInput()
-     * on all windows returned by XQueryTree() but root
-     * window motion is still not included. XGrabPointer()
-     * will deliver events but blocks all other clients,
-     * i.e. none of your windows will respond to the cursor.
-     *
-     * Fortunately, the XInputExtension CAN deliver pointer
-     * events cleanly for the whole root window! Yes!
-     *
-     * Previous to using XInputExtension I had to use a
-     * poll(2) loop on /dev/input/event*...nasty.
-     */
-
-    /* Get the main pointer device id for XI2 requests */
-    int pointer_dev_id;
-    XIGetClientPointer(dpy, None, &pointer_dev_id);
-
-    XIEventMask evmask;
-    /*
-     * The mask is set here in a very non-intuitive way
-     * but is more robust for adding additional event masks.
-     *
-     * (1) check how many bytes you need with XIMaskLen and
-     *     alloc an array of unsigned chars accordingly.
-     */
-    unsigned char mask[XIMaskLen(XI_Motion)] = { 0 };
-    evmask.deviceid = pointer_dev_id;
-    evmask.mask_len = sizeof(mask);
-    evmask.mask = mask;
-    /*
-     * (2) use XISetMask macro to toggle the right event bits
-     */
-    XISetMask(mask, XI_Motion);
-    XISelectEvents(dpy, DefaultRootWindow(dpy), &evmask, 1);
-
-    XEvent ev;
-    do {
-        XNextEvent(dpy, &ev);
-        /* see http://who-t.blogspot.com/2009/07/xi2-and-xlib-cookies.html */
-        if (XGetEventData(dpy, &ev.xcookie)) {
-            XGenericEventCookie *cookie = &ev.xcookie;
-            if (cookie->extension == xi_opcode &&
-                cookie->evtype == XI_Motion) {
-                XIDeviceEvent *xiev = (XIDeviceEvent *)cookie->data;
-                update_cursor(dpy, args->mdpy, args->cursor,
-                    (int)xiev->root_x, (int)xiev->root_y);
-            }
-            XFreeEventData(dpy, cookie);
-        } else {
-            MLOGW("[ct] warning: unknown event %d\n", ev.type);
-        }
-    } while (1);
-
-    XCloseDisplay(dpy);
-    return NULL;
 }
 
 int cleanup_shm(const void *shmaddr, const int shmid) {
@@ -633,20 +458,13 @@ int main(void) {
     //
     // check for necessary eXtensions
     //
-    int xfixes_event_base, error;
-    if (!XFixesQueryExtension(dpy, &xfixes_event_base, &error)) {
-        MLOGE("Xfixes extension unavailable!\n");
-        XCloseDisplay(dpy);
-        return -1;
-    }
-
     if (!XShmQueryExtension(dpy)) {
         MLOGE("XShm extension unavailable!\n");
         XCloseDisplay(dpy);
         return -1;
     }
 
-    int xdamage_event_base;
+    int xdamage_event_base, error;
     if (!XDamageQueryExtension(dpy, &xdamage_event_base, &error)) {
         MLOGE("XDamage extension unavailable!\n");
         XCloseDisplay(dpy);
@@ -668,7 +486,7 @@ int main(void) {
     }
 
     if (XSetErrorHandler(x_error_handler) < 0) {
-        MLOGE("error setting error handler");
+        MLOGE("error setting error handler\n");
     }
 
     int screen = DefaultScreen(dpy);
@@ -694,31 +512,14 @@ int main(void) {
         goto cleanup_1;
     }
 
-    /* cursor buffer */
-    XFixesCursorImage *xcursor = XFixesGetCursorImage(dpy);
-    cursor_cache_add(xcursor);
-    cursor_cache_set_cur(xcursor);
-
-    MBuffer cursor;
-    cursor.width = CURSOR_WIDTH;
-    cursor.height = CURSOR_HEIGHT;
-    if (MCreateBuffer(&mdpy, &cursor) < 0) {
-        MLOGE("error creating cursor buffer\n");
+    struct MCursor mcursor = { 0 };
+    if (mcursor_init(&mcursor, dpy, &mdpy) < 0) {
+        MLOGE("error creating cursor client\n");
         err = -1;
         goto cleanup_1;
     }
 
-    /* render cursor sprite */
-    if (copy_xcursor_to_buffer(&mdpy, &cursor, xcursor) < 0) {
-        MLOGE("failed to render cursor sprite\n");
-    }
-
-    /* place the cursor at the right starting position */
-    update_cursor(dpy, &mdpy, &cursor, xcursor->x, xcursor->y);
-
-    //
-    // set up XShm
-    //
+    /* set up XShm */
     XShmSegmentInfo shminfo;
     XImage *ximg = xshm_init(dpy, &shminfo, screen);
     if (ximg == NULL) {
@@ -727,32 +528,10 @@ int main(void) {
         goto cleanup_1;
     }
 
-    //
-    // register for X events
-    //
-
-    /* let me know when the cursor image changes */
-    XFixesSelectCursorInput(dpy, DefaultRootWindow(dpy),
-        XFixesDisplayCursorNotifyMask);
-
     /* report a single damage event if the damage region is non-empty */
     Damage damage = XDamageCreate(dpy, DefaultRootWindow(dpy),
         XDamageReportNonEmpty);
 
-
-    //
-    // spawn cursor thread
-    //
-    pthread_t cursor_pthread;
-    struct cursor_thread_args args;
-    args.mdpy = &mdpy;
-    args.cursor = &cursor;
-    pthread_create(&cursor_pthread, NULL,
-        &cursor_thread, (void *)&args);
-
-    //
-    // event loop
-    //
     XEvent ev;
     do {
         XNextEvent(dpy, &ev);
@@ -771,26 +550,6 @@ int main(void) {
 
             /* TODO opt: only render damaged areas */
             render_root(dpy, &mdpy, &root, ximg);
-        } else if (ev.type == xfixes_event_base + XFixesCursorNotify) {
-            MLOGD("XFixesCursorNotifyEvent!\n");
-            XFixesCursorNotifyEvent *cev = (XFixesCursorNotifyEvent *)&ev;
-            MLOGD("cursor_serial: %lu\n", cev->cursor_serial);
-
-            /* first, check if we have the new cursor in our cache... */
-            XFixesCursorImage *xcursor = cursor_cache_get(cev->cursor_serial);
-
-            /* ...if not, make the server request */
-            if (xcursor == NULL) {
-                xcursor = XFixesGetCursorImage(dpy);
-                cursor_cache_add(xcursor);
-            }
-
-            /* render the new cursor */
-            if (copy_xcursor_to_buffer(&mdpy, &cursor, xcursor) < 0) {
-                MLOGE("failed to render cursor sprite\n");
-            }
-
-            cursor_cache_set_cur(xcursor);
         } else if (ev.type == xrandr_event_base + RRScreenChangeNotify) {
             /*
              * Someone changed the screen configuration.
@@ -834,6 +593,8 @@ int main(void) {
                 MLOGC("failed to resize mbuffer\n");
                 break;
             }
+        } else {
+            mcursor_on_event(&mcursor, &ev);
         }
     } while (1);
 
