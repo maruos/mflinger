@@ -327,7 +327,7 @@ static int sync_displays(Display *dpy, MDisplay *mdpy,
      * If we can get the real display size, set that as our target size.
      */
     MDisplayInfo dinfo = { 0 };
-    if (MGetDisplayInfo(mdpy, &dinfo) <= 0) {
+    if (MGetDisplayInfo(mdpy, &dinfo) < 0) {
         MLOGW("failed to get mdisplay info, using current mode\n");
         return -1;
     }
@@ -367,7 +367,7 @@ static int sync_displays(Display *dpy, MDisplay *mdpy,
      */
     XGrabServer(dpy);
 
-    int err = -1;
+    int err = 0;
     int screen = DefaultScreen(dpy);
     uint32_t xwidth = XDisplayWidth(dpy, screen);
     uint32_t xheight = XDisplayHeight(dpy, screen);
@@ -375,6 +375,9 @@ static int sync_displays(Display *dpy, MDisplay *mdpy,
     int x_sync_needed = xwidth != target_width ||
                         xheight != target_height;
     if (x_sync_needed) {
+        err = -1;
+        MLOGI("syncing true display resolution...\n");
+
         XRRScreenResources *screenr = XRRGetScreenResources(dpy,
                                         DefaultRootWindow(dpy));
         XRRModeInfo *matching_mode = x_find_matching_mode(dpy, screenr,
