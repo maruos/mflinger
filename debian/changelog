@@ -1,5 +1,5 @@
-maru-mflinger-client (0.1-1) unstable; urgency=low
+maru-mflinger-client (0.3-7-g0b187c0-1) UNRELEASED; urgency=medium
 
-  * Initial release
+  * Initial release.
 
- -- Preetam D'Souza <pre@maruos.com>  Tue, 14 Jun 2016 15:44:08 +0000
+ -- Preetam D'Souza <preetamjdsouza@gmail.com>  Thu, 08 Dec 2016 02:24:52 +0000

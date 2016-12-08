@@ -1,7 +1,7 @@
 Source: maru-mflinger-client
 Section: x11
 Priority: optional
-Maintainer: Preetam D'Souza <pre@maruos.com>
+Maintainer: Preetam D'Souza <preetamjdsouza@gmail.com>
 Build-Depends: debhelper (>= 9), dh-systemd,
     libx11-dev, libxfixes-dev, libxext-dev, libxdamage-dev, libxi-dev, libxrandr-dev
 Standards-Version: 3.9.5
