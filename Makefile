@@ -14,13 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 PACKAGE := mflinger
 
-MAJOR_VERSION := 0
-MINOR_VERSION := 1
+VERSION := $(shell git describe)
 
-ARCHIVE := $(PACKAGE)-$(MAJOR_VERSION).$(MINOR_VERSION)
+ARCHIVE := $(PACKAGE)-$(VERSION)
 
 #
 # Compiler
