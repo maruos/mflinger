@@ -1,0 +1,16 @@
+Source: maru-mflinger-client
+Section: x11
+Priority: optional
+Maintainer: Preetam D'Souza <pre@maruos.com>
+Build-Depends: debhelper (>= 9), dh-systemd,
+    libx11-dev, libxfixes-dev, libxext-dev, libxdamage-dev, libxi-dev, libxrandr-dev
+Standards-Version: 3.9.5
+Homepage: http://maruos.com
+#Vcs-Git: git://anonscm.debian.org/collab-maint/maru-mflinger-client.git
+#Vcs-Browser: http://anonscm.debian.org/?p=collab-maint/maru-mflinger-client.git;a=summary
+
+Package: maru-mflinger-client
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+    libx11-6, libxfixes3, libxext6, libxdamage1, libxi6, libxrandr2
+Description: mflinger x11 client
