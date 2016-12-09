@@ -1,9 +1,9 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: mflinger
-Source: https://github.com/maruos/maruos
+Source: https://github.com/maruos/mflinger
 
 Files: *
-Copyright: 2015-2016 Preetam J. D'Souza <pre@maruos.com>
+Copyright: 2015-2016 Preetam J. D'Souza <preetamjdsouza@gmail.com>
            2016 The Maru OS Project
 License: Apache-2.0
  Copyright 2015-2016 Preetam J. D'Souza
