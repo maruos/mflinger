@@ -21,16 +21,9 @@ RUN dpkg --add-architecture armhf \
     && apt-get install -y crossbuild-essential-armhf crossbuild-essential-arm64
 
 # mclient build dependencies
-# multiarch libs are done in a separate apt-get command to avoid weird conflicts
 # NOTE: libxi-dev is broken and always removes the previous installed architecture...
+# thus, multiarch libs are done in a separate apt-get command to avoid weird conflicts
 RUN apt-get install -y \
-    libx11-dev \
-    libxfixes-dev \
-    libxext-dev \
-    libxdamage-dev \
-    libxi-dev \
-    libxrandr-dev \
-&& apt-get install -y \
     libx11-dev:armhf \
     libxfixes-dev:armhf \
     libxext-dev:armhf \
@@ -43,15 +36,16 @@ RUN apt-get install -y \
     libxext-dev:arm64 \
     libxdamage-dev:arm64 \
     libxi-dev:arm64 \
-    libxrandr-dev:arm64
+    libxrandr-dev:arm64 \
+&& apt-get install -y \
+    libx11-dev \
+    libxfixes-dev \
+    libxext-dev \
+    libxdamage-dev \
+    libxi-dev \
+    libxrandr-dev
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# set up workspace
-ENV MARU_WORKSPACE /var/mworkspace
-RUN mkdir -p ${MARU_WORKSPACE}
-WORKDIR ${MARU_WORKSPACE}
-COPY . ${MARU_WORKSPACE}
 
 # create a non-root user
 ARG user=dev
@@ -62,5 +56,9 @@ RUN groupadd -g ${gid} ${group} \
     && useradd -u ${uid} -g ${gid} -m -s /bin/bash ${user} \
     && echo "${user} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-passwordless-sudo
 
+COPY . /home/${user}
+RUN chown -R ${user}:${user} /home/${user}
+
 # drop root
 USER ${user}
+WORKDIR /home/${user}
