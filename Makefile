@@ -50,6 +50,13 @@ SRCS := $(wildcard src/mclient/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS)) 
 TARGET_DEPS := $(OBJS) $(TARGET_LIB) 
 
+TEST_MODULE := suite
+TEST_TARGET := tests/$(TEST_MODULE)
+TEST_SRCS := $(wildcard tests/*.c)
+TEST_OBJS := $(patsubst %.c,%.o,$(TEST_SRCS))
+TEST_TARGET_DEPS := $(TEST_OBJS) \
+	src/mclient/util.o
+
 #
 # Rules
 #
@@ -65,6 +72,10 @@ $(TARGET): $(BUILD_OUT) $(TARGET_DEPS)
 
 $(TARGET_LIB): $(TARGET_LIB_DEPS) 
 	ar rcs $@ $<
+
+test: $(TEST_TARGET)
+$(TEST_TARGET): $(TEST_TARGET_DEPS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
@@ -89,8 +100,8 @@ dist: $(BUILD_OUT)
 	tar cJf $(BUILD_OUT)/$(ARCHIVE).tar.xz -C $(BUILD_OUT) $(ARCHIVE)
 
 clean:
-	-@rm $(OBJS) $(LIB_OBJS)
-	-@rm $(TARGET_LIB)
+	-@rm $(OBJS) $(LIB_OBJS) $(TEST_OBJS)
+	-@rm $(TARGET) $(TARGET_LIB) $(TEST_TARGET)
 	-@rm -r $(BUILD_OUT)
 
 .DELETE_ON_ERROR:

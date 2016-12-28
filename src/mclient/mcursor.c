@@ -25,6 +25,7 @@
 #include "mcursor.h"
 #include "mcursor_cache.h"
 #include "mlog.h"
+#include "util.h"
 
 /*
  * All cursor-related logic belongs here.
@@ -60,23 +61,23 @@ static int copy_xcursor_to_buffer(MDisplay *mdpy, MBuffer *buf,
     /* clear out stale pixels */
     memset(buf->bits, 0, buf->height * buf->stride * 4);
 
-    uint32_t cur_x, cur_y;  /* cursor relative coords */
-    uint32_t x, y;          /* root window coords */
-    for (cur_y = 0; cur_y < cursor->height; ++cur_y) {
-        for (cur_x = 0; cur_x < cursor->width; ++cur_x) {
-            x = cur_x;
-            y = cur_y;
-
+    int x, y;
+    for (y = 0; y < cursor->height; ++y) {
+        for (x = 0; x < cursor->width; ++x) {
             /* bounds check! */
             if (y >= buf->height || x >= buf->width) {
                 break;
             }
 
-            uint8_t *pixel = (uint8_t *)cursor->pixels +
-                4 * (cur_y * cursor->width + cur_x);
+            int pixel_row_offset = y * cursor->width;
+            int pixel_col_offset = x;
+            unsigned long *pixel = cursor->pixels +
+                pixel_row_offset + pixel_col_offset;
 
-            /* copy only if opaque pixel */
-            if (pixel[3] == 255) {
+            /*
+             * Copy only if opaque pixel to avoid weird artifacts.
+             */
+            if (argb8888_get_alpha(*pixel) == 255) {
                 uint32_t *buf_pixel = buf->bits + (y * buf->stride + x) * 4;
                 memcpy(buf_pixel, pixel, 4);
             }
