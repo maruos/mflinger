@@ -8,3 +8,4 @@ before_install:
 
 script:
   - docker run maruos/mflinger make
+  - docker run maruos/mflinger /bin/bash -c "make tests && ./tests/suite"
