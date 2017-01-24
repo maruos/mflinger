@@ -73,7 +73,7 @@ $(TARGET): $(BUILD_OUT) $(TARGET_DEPS)
 $(TARGET_LIB): $(TARGET_LIB_DEPS) 
 	ar rcs $@ $<
 
-test: $(TEST_TARGET)
+tests: $(TEST_TARGET)
 $(TEST_TARGET): $(TEST_TARGET_DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
