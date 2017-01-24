@@ -1,5 +1,7 @@
 # mflinger
 
+[![Build Status](https://travis-ci.org/maruos/mflinger.svg?branch=master)](https://travis-ci.org/maruos/mflinger)
+
 Graphics buffer bridge for Maru OS.
 
 ### Contributing
