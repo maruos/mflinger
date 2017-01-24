@@ -1,4 +1,18 @@
-maru-mflinger-client (0.3-7-g0b187c0-1) UNRELEASED; urgency=medium
+maru-mflinger-client (0.3-14-gf336c9a-1) testing; urgency=low
+
+  * dockerfile: add cross-compile dependencies
+  * dockerfile: re-order and add home dir
+  * travis: add basic config
+  * README: add travis badge
+  * Add useful build scripts
+  * mclient: make cursor buffer copying portable on arm64
+  * travis: run tests after build (#1)
+  * Fix bug in make dist
+  * Add back missing .gitignore
+
+ -- Preetam D'Souza <preetamjdsouza@gmail.com>  Tue, 24 Jan 2017 02:18:34 +0000
+
+maru-mflinger-client (0.3-7-g0b187c0-1) testing; urgency=low
 
   * Initial release.
 
