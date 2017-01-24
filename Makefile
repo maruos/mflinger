@@ -94,8 +94,9 @@ uninstall:
 
 dist: $(BUILD_OUT)
 	mkdir -p /tmp/dist/$(ARCHIVE)
-	cp -r * /tmp/dist/$(ARCHIVE)
+	cp -r . /tmp/dist/$(ARCHIVE)
 	rm -r /tmp/dist/$(ARCHIVE)/$(BUILD_OUT)
+	rm -rf /tmp/dist/$(ARCHIVE)/.git
 	mv /tmp/dist/$(ARCHIVE) -t $(BUILD_OUT)
 	tar cJf $(BUILD_OUT)/$(ARCHIVE).tar.xz -C $(BUILD_OUT) $(ARCHIVE)
 
