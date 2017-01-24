@@ -18,8 +18,8 @@
 
 set -e
 
-STAGING_DIR="apt-srv-root"
-RELEASE="testing"
+readonly STAGING_DIR="apt-srv-root"
+readonly RELEASE="testing"
 
 help () {
     cat <<EOF
@@ -30,7 +30,7 @@ EOF
 }
 
 mecho () {
-    echo "[ * ] ${1}"
+    echo "[*] ${1}"
 }
 
 if [ ! -d "$1" ] ; then
