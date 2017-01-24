@@ -1,0 +1,11 @@
+sudo: required
+
+services:
+  - docker
+
+before_install:
+  - docker build -t maruos/mflinger .
+
+script:
+  - docker run maruos/mflinger make
+  - docker run maruos/mflinger /bin/bash -c "make tests && ./tests/suite"
