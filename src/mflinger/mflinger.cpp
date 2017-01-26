@@ -393,7 +393,8 @@ static void reset_state(struct mflinger_state *state) {
 }
 
 static void serve(const int sockfd, struct mflinger_state *state) {
-    int cfd, t;
+    int cfd;
+    socklen_t t;
     struct sockaddr_un remote;
 
     ALOGD_IF(DEBUG, "Listening for client requests...");
