@@ -1,3 +1,11 @@
+maru-mflinger-client (0.3-16-gce9afa4-1) testing; urgency=low
+
+  * scripts: Refactor and simplify
+  * mflinger: Use explicit socklen_t type for portability
+  * dockerfile: use subdir for src
+
+ -- Preetam D'Souza <preetamjdsouza@gmail.com>  Thu, 16 Mar 2017 17:33:59 +0000
+
 maru-mflinger-client (0.3-14-gf336c9a-1) testing; urgency=low
 
   * dockerfile: add cross-compile dependencies
