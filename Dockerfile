@@ -56,7 +56,8 @@ RUN groupadd -g ${gid} ${group} \
     && useradd -u ${uid} -g ${gid} -m -s /bin/bash ${user} \
     && echo "${user} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-passwordless-sudo
 
-COPY . /home/${user}
+RUN mkdir -p /home/${user}/mflinger
+COPY . /home/${user}/mflinger
 RUN chown -R ${user}:${user} /home/${user}
 
 # drop root
