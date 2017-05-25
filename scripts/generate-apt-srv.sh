@@ -41,11 +41,23 @@ fi
 
 mecho "Creating server staging area..."
 mkdir -p "${STAGING_DIR}/${RELEASE}"
-cp "${1}/"* "${STAGING_DIR}/${RELEASE}"
+cp "${1}/"*.deb "${STAGING_DIR}/${RELEASE}"
 
-mecho "Generating Packages.gz..."
 pushd "${STAGING_DIR}"
-dpkg-scanpackages -m testing /dev/null | gzip -9c > testing/Packages.gz
+
+mecho "Generating Packages file..."
+apt-ftparchive packages testing > testing/Packages
+gzip -k testing/Packages
+
+mecho "Generating Release file..."
+# don't write Release to testing/ until the end or else Release contains it's
+# own hases!
+apt-ftparchive release testing > Release
+mv Release testing/Release
+
+mecho "Signing Release (please enter passphrase)..."
+gpg --default-key C8CC48892A8D0B59F08B40D80C374E742AE862B4 -abs -o testing/Release.gpg testing/Release
+
 popd
 
 mecho "All tasks completed successfully."
