@@ -2,13 +2,15 @@ FROM debian:latest
 MAINTAINER Preetam D'Souza <preetamjdsouza@gmail.com>
 
 RUN apt-get update && apt-get install -y \
+    apt-utils \
     build-essential \
     debhelper \
     devscripts \
     dh-make \
     dh-systemd \
     git-buildpackage \
-    nano
+    nano \
+    tree
 
 # set up cross-toolchain archive (only needed for Jessie)
 RUN echo 'deb http://emdebian.org/tools/debian/ jessie main' > /etc/apt/sources.list.d/crosstools.list \
