@@ -158,10 +158,14 @@ static void select_events(Display *dpy, Window win)
 
     memset(mask1, 0, sizeof(mask1));
 
-    /* select for button and key events from all master devices */
+    /* Select for motion from the default cursor */
     XISetMask(mask1, XI_RawMotion);
 
-    evmasks[0].deviceid = XIAllMasterDevices;
+    int pointer_dev_id;
+
+    XIGetClientPointer(dpy, None, &pointer_dev_id);
+
+    evmasks[0].deviceid = pointer_dev_id;
     evmasks[0].mask_len = sizeof(mask1);
     evmasks[0].mask = mask1;
 
@@ -205,15 +209,21 @@ void *cursor_motion_thread(void *targs) {
 
     	XNextEvent(dpy, &ev);
 
-    	if (cookie->type != GenericEvent ||cookie->extension != xi_opcode ||!XGetEventData(dpy, cookie))
+    	if (cookie->type != GenericEvent ||cookie->extension != xi_opcode )
            continue;
 
-    	if (cookie->evtype == XI_RawMotion) 
+        if (XGetEventData(dpy, cookie))
         {
-        		XQueryPointer(dpy, DefaultRootWindow(dpy),&root_ret, &child_ret, &root_x, &root_y, &win_x, &win_y, &mask);
+    	    if (cookie->evtype == XI_RawMotion) 
+            {
+        	XQueryPointer(dpy, DefaultRootWindow(dpy),&root_ret, &child_ret, &root_x, &root_y, &win_x, &win_y, &mask);
                 update_cursor(dpy, this->mMdpy, &this->mBuffer,root_x, root_y);
-    	}
-    	XFreeEventData(dpy, cookie);
+    	    }
+            XFreeEventData(dpy, cookie);
+
+        }
+
+    	
     }
  
     XCloseDisplay(dpy);
