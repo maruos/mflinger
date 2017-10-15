@@ -22,6 +22,7 @@
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/XInput2.h>
 
+
 #include "mcursor.h"
 #include "mcursor_cache.h"
 #include "mlog.h"
@@ -130,75 +131,101 @@ static void select_image_events(Display *xdpy) {
         XFixesDisplayCursorNotifyMask);
 }
 
-void *cursor_motion_thread(void *targs) {
-    struct MCursor *this = (struct MCursor *)targs;
+/* Return 1 if XI2 is available, 0 otherwise */
+static int has_xi2(Display *dpy)
+{
+    int major, minor;
+    int rc;
 
-    /* separate threads need separate client connections */
-    Display *dpy = XOpenDisplay(NULL);
-    if (!dpy) {
-        MLOGE("[ct] error calling XOpenDisplay\n");
-        return (void *)-1;
-    }
+    /* We support XI 2.2 */
+    major = 2;
+    minor = 2;
 
-    /* check for XInputExtension (XI*) */
-    int xi_opcode, event, error;
-    if (!XQueryExtension(dpy, "XInputExtension",
-            &xi_opcode, &event, &error)) {
-        MLOGE("[ct] XInputExtension unavailable!\n");
-        XCloseDisplay(dpy);
-        return (void *)-1;
-    }
+    rc = XIQueryVersion(dpy, &major, &minor);
+    if (rc == BadRequest) 
+     {
+    	MLOGE("No XI2 support. Server supports version %d.%d only.\n", major, minor);
+    	return 0;
+    } 
+ 
+    return 1;
+}
 
-    /* check for XI2 version */
-    int ret;
-    int major = XI_2_Major, minor = XI_2_Minor;
-    ret = XIQueryVersion(dpy, &major, &minor);
-    if (ret == BadRequest) {
-        MLOGE("[ct] No matching XI2 support. (%d.%d only)\n", major, minor);
-        XCloseDisplay(dpy);
-        return (void *)-1;
-    }
+static void select_events(Display *dpy, Window win)
+{
+    XIEventMask evmasks[1];
+    unsigned char mask1[(XI_LASTEVENT + 7)/8];
 
-    /* Get the main pointer device id for XI2 requests */
+    memset(mask1, 0, sizeof(mask1));
+
+    /* Select for motion from the default cursor */
+    XISetMask(mask1, XI_RawMotion);
+
     int pointer_dev_id;
+
     XIGetClientPointer(dpy, None, &pointer_dev_id);
 
-    XIEventMask evmask;
-    /*
-     * The mask is set here in a very non-intuitive way
-     * but is more robust for adding additional event masks.
-     *
-     * (1) check how many bytes you need with XIMaskLen and
-     *     alloc an array of unsigned chars accordingly.
-     */
-    unsigned char mask[XIMaskLen(XI_Motion)] = { 0 };
-    evmask.deviceid = pointer_dev_id;
-    evmask.mask_len = sizeof(mask);
-    evmask.mask = mask;
-    /*
-     * (2) use XISetMask macro to toggle the right event bits
-     */
-    XISetMask(mask, XI_Motion);
-    XISelectEvents(dpy, DefaultRootWindow(dpy), &evmask, 1);
+    evmasks[0].deviceid = pointer_dev_id;
+    evmasks[0].mask_len = sizeof(mask1);
+    evmasks[0].mask = mask1;
 
+    XISelectEvents(dpy, win, evmasks, 1);
+    XFlush(dpy);
+}
+
+void *cursor_motion_thread(void *targs) {
+
+    struct MCursor *this = (struct MCursor *)targs;
+ 
+    Display *dpy;
+    int xi_opcode, event, error;
     XEvent ev;
-    do {
-        XNextEvent(dpy, &ev);
-        /* see http://who-t.blogspot.com/2009/07/xi2-and-xlib-cookies.html */
-        if (XGetEventData(dpy, &ev.xcookie)) {
-            XGenericEventCookie *cookie = &ev.xcookie;
-            if (cookie->extension == xi_opcode &&
-                cookie->evtype == XI_Motion) {
-                XIDeviceEvent *xiev = (XIDeviceEvent *)cookie->data;
-                update_cursor(dpy, this->mMdpy, &this->mBuffer,
-                    (int)xiev->root_x, (int)xiev->root_y);
-            }
-            XFreeEventData(dpy, cookie);
-        } else {
-            MLOGW("[ct] warning: unknown event %d\n", ev.type);
-        }
-    } while (1);
 
+    dpy = XOpenDisplay(NULL);
+
+    if (!dpy) {
+    	MLOGE("Failed to open display.\n");
+    	return (void *)-1;
+    }
+
+    if (!XQueryExtension(dpy, "XInputExtension", &xi_opcode, &event, &error)) {
+       MLOGE("X Input extension not available.\n");
+       return (void *)-1;
+    }
+
+    if (!has_xi2(dpy))
+       return (void *)-1;
+
+    /* select for XI2 events */
+    select_events(dpy, DefaultRootWindow(dpy));
+
+    while(1) 
+    {
+    	XGenericEventCookie *cookie = &ev.xcookie;
+    	Window      	root_ret, child_ret;
+    	int         	root_x, root_y;
+    	int         	win_x, win_y;
+    	unsigned int    mask;
+
+    	XNextEvent(dpy, &ev);
+
+    	if (cookie->type != GenericEvent ||cookie->extension != xi_opcode )
+           continue;
+
+        if (XGetEventData(dpy, cookie))
+        {
+    	    if (cookie->evtype == XI_RawMotion) 
+            {
+        	XQueryPointer(dpy, DefaultRootWindow(dpy),&root_ret, &child_ret, &root_x, &root_y, &win_x, &win_y, &mask);
+                update_cursor(dpy, this->mMdpy, &this->mBuffer,root_x, root_y);
+    	    }
+            XFreeEventData(dpy, cookie);
+
+        }
+
+    	
+    }
+ 
     XCloseDisplay(dpy);
     return NULL;
 }
