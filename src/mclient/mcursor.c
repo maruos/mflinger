@@ -153,7 +153,7 @@ static int has_xi2(Display *dpy)
 static void select_events(Display *dpy, Window win)
 {
     XIEventMask evmasks[1];
-    unsigned char mask1[(XI_LASTEVENT + 7)/8];
+    unsigned char mask1[XIMaskLen(XI_RawMotion)];
 
     memset(mask1, 0, sizeof(mask1));
 
