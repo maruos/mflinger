@@ -78,7 +78,12 @@ echo "${version}" | gbp import-orig \
 
 if [ "$OPT_CHANGELOG" = true ] ; then
     mecho "creating temporary snapshot changelog entry..."
-    gbp dch --snapshot --auto
+    gbp dch \
+        --release \
+        --auto \
+        --urgency=low \
+        --spawn-editor=never \
+        --git-author
 fi
 
 mecho "All tasks completed successfully."
