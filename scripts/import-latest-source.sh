@@ -50,6 +50,12 @@ while true; do
     esac
 done
 
+if [ ! -z "$GIT_USER_EMAIL" ] && [ ! -z "$GIT_USER_NAME" ] ; then
+    mecho "using override git user ${GIT_USER_NAME} <${GIT_USER_EMAIL}> for subsequent operations"
+    git config user.email "$GIT_USER_EMAIL"
+    git config user.name "$GIT_USER_NAME"
+fi
+
 mecho "making sure all needed branches are checked out locally..."
 git checkout gbp/upstream
 
