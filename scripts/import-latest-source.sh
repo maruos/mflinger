@@ -50,6 +50,9 @@ while true; do
     esac
 done
 
+mecho "making sure all needed branches are checked out locally..."
+git checkout gbp/upstream
+
 mecho "creating latest source tarball..."
 git checkout master
 make dist
