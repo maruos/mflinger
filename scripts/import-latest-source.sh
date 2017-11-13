@@ -44,7 +44,7 @@ eval set -- "$ARGS"
 
 while true; do
     case "$1" in
-        -c|--changelog) OPT_IMPORT=true; shift ;;
+        -c|--changelog) OPT_CHANGELOG=true; shift ;;
         -h|--help) help; exit 0 ;;
         --) shift; break ;;
     esac
