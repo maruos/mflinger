@@ -56,7 +56,7 @@ apt-ftparchive release testing > Release
 mv Release testing/Release
 
 mecho "Signing Release (please enter passphrase)..."
-gpg --default-key C8CC48892A8D0B59F08B40D80C374E742AE862B4 -abs -o testing/Release.gpg testing/Release
+gpg --default-key DF4B5D9A28C1A7231191D7394F5E5755E35B303B -abs -o testing/Release.gpg testing/Release
 
 popd
 
