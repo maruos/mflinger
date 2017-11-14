@@ -1,3 +1,18 @@
+maru-mflinger-client (0.4.1-6-g1077ee0-1) testing; urgency=low
+
+  [ Chituc Georgian ]
+  * Fix pointer movement (#5)
+
+  [ Preetam D'Souza ]
+  * Copy scripts from debian branch to master
+  * Remove scripts from debian branch
+  * scripts: Make sure packaging branches are checked out
+  * scripts: Allow git user override
+  * scripts: Fix bug in snapshot changelog option
+  * scripts: Improve changelog creation
+
+ -- Preetam D'Souza <preetamjdsouza@gmail.com>  Tue, 14 Nov 2017 02:53:54 +0000
+
 maru-mflinger-client (0.4-1-gdcbaaa2-1) testing; urgency=low
 
   * scripts: Generate signed Release files
