@@ -111,8 +111,15 @@ static int getDisplayInfo(const int sockfd) {
     sp<IBinder> dpy_ext = SurfaceComposerClient::getBuiltInDisplay(
             ISurfaceComposer::eDisplayIdHdmi);
     check = SurfaceComposerClient::getDisplayInfo(dpy_ext, &dinfo_ext);
+    // If we use Android cast with virtual display, the get display info will failed.
+    // We will use valid meaningful default display info at last to give user a normal
+    // experience. 1280 x 720 is good enough for most of cases.
+    // We should support get virtual display info later.
     if (NO_ERROR != check) {
         ALOGW("getDisplayInfo() for eDisplayIdHdmi failed!");
+        dinfo_ext.w = 1280;
+        dinfo_ext.h = 720;
+        ALOGW("Use default display size 1280 x 720 for at last.");
     }
 
     ALOGD_IF(DEBUG, "HDMI DisplayInfo dump");
