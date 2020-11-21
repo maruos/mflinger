@@ -36,6 +36,7 @@ LOCAL_CFLAGS := -DLOG_TAG=\"mflinger\"
 LOCAL_SHARED_LIBRARIES := \
     liblog \
     libutils \
+    libui \
     libgui \
     libmflinger
 include $(BUILD_EXECUTABLE)
