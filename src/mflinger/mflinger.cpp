@@ -164,14 +164,11 @@ static int createSurface(struct mflinger_state *state,
     //
     // Display the surface on the screen
     //
-    status_t ret = NO_ERROR;
-    SurfaceComposerClient::openGlobalTransaction();
-
-    ret |= surface->setLayer(get_layer(state->num_surfaces));
-    ret |= surface->setLayerStack(state->layerstack);
-    ret |= surface->show();
-
-    SurfaceComposerClient::closeGlobalTransaction(true);
+    status_t ret = SurfaceComposerClient::Transaction{}
+        .setLayer(surface, get_layer(state->num_surfaces))
+        .setLayerStack(surface, state->layerstack)
+        .show(surface)
+        .apply();
 
     if (NO_ERROR != ret) {
         ALOGE("compositor transaction failed!");
@@ -227,10 +224,9 @@ static int updateBuffer(const int sockfd, struct mflinger_state *state) {
 
     sp<SurfaceControl> sc = state->surfaces[idx];
 
-    status_t ret = NO_ERROR;
-    SurfaceComposerClient::openGlobalTransaction();
-    ret |= sc->setPosition(request.xpos, request.ypos);
-    SurfaceComposerClient::closeGlobalTransaction();
+    status_t ret = SurfaceComposerClient::Transaction{}
+        .setPosition(sc, request.xpos, request.ypos)
+        .apply();
 
     if (NO_ERROR != ret) {
         ALOGE("compositor transaction failed!");
@@ -255,10 +251,9 @@ static int resizeBuffer(const int sockfd, struct mflinger_state *state) {
 
     sp<SurfaceControl> sc = state->surfaces[idx];
 
-    status_t ret = NO_ERROR;
-    SurfaceComposerClient::openGlobalTransaction();
-    ret |= sc->setSize(request.width, request.height);
-    SurfaceComposerClient::closeGlobalTransaction();
+    status_t ret = SurfaceComposerClient::Transaction{}
+        .setSize(sc, request.width, request.height)
+        .apply();
 
     MResizeBufferResponse response;
     response.result = 0;
